@@ -99,7 +99,7 @@ void loop() {
   {
   case 0:
     /* Test Temperature-based color setting */
-    setColorPWMFromTempWithBlink(90, 70);
+    setColorPWMFromTempWithBlink(80, 70);
     break;
   case 1:
     /* Temperature-based color setting */
@@ -165,7 +165,6 @@ void setColorPWMFromTemp(float maxTemp, float minTemp) {
 
 void setColorPWMFromTempWithBlink(float maxTemp, float minTemp) {
   float temperature = getTemp();
-  //temperature = 90;
   byte r, g, b;
   float blink = 0;
 
@@ -189,7 +188,7 @@ void setColorPWMFromTempWithBlink(float maxTemp, float minTemp) {
     b = 0;
     blink = 200 / ratio;
   }
-  Serial.println(blink);
+  //Serial.println(blink);
   setColorPWM(r, g, b);
   delay(blink);
   if (blink != 0) {
@@ -203,7 +202,7 @@ void setColorPWM(byte r, byte g, byte b) {
   float potValue = analogRead(BRIGHTNESS_PIN);        // 0 - 4096
   float brightness = potValue / 4096.0;             // 0.0 to 1.0
   //Serial.println(brightness);
-  //brightness = 1.0; // for use when potentiometer is not connected
+  //brightness = 0.8; // for use when potentiometer is not connected
 
   analogWrite(RED_PIN,   r * brightness);
   analogWrite(GREEN_PIN, g * brightness);
