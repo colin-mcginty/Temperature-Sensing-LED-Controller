@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <max6675.h>
+#include <queue>
 
 /// Pin definitions
 // RGB LED pins
@@ -40,9 +41,22 @@ const int fadeTime = 1000;
 const int steps = 100;
 const int delayTime = fadeTime / steps;
 
+std::queue<float> lastTemps;
+
+// Timer Variables
+/*
+array of floats
+temperature threshold for turn off LED
+if last high temperature was recorded a certain amount of time ago, then turn off LEDs
+
+
+*/
+
+
+
 /* PARAMETER CONFIGURATION */
-const float maxTemp = 250.0; // Maximum temperature for scaling
-const float minTemp = 600.0; // Minimum temperature for scaling
+const float maxTemp = 150.0; // Maximum temperature for scaling
+const float minTemp = 250.0; // Minimum temperature for scaling
 
 byte mode = 0;
 
@@ -95,6 +109,20 @@ void loop() {
 
   mode = computeModeFromSwitches(b3, b2, b1);
   //Serial.println(mode);
+  float temp = getTemp();
+  
+  // keep average of last 5 temperature readings
+  if (lastTemps.size() >= 5) {
+    lastTemps.pop();
+  }
+  lastTemps.push(temp);
+
+  float averageLastTemps = 0;
+  for (int i = 0; i < 5; i++) {
+    averageLastTemps += lastTemps.front();
+  }
+  
+  
   switch (mode)
   {
   case 0:
@@ -103,7 +131,12 @@ void loop() {
     break;
   case 1:
     /* Temperature-based color setting */
-    setColorPWMFromTemp(maxTemp, minTemp);
+    if (temp > averageLastTemps) {
+      setColorPWM(255, 0, 0); // Set to red when temperature is rising
+    } else {
+      setColorPWMFromTemp(maxTemp, minTemp);
+    }
+    
     //Serial.print("F = ");
     //Serial.println(thermocouple.readFahrenheit());
     break;
@@ -189,12 +222,12 @@ void setColorPWMFromTempWithBlink(float maxTemp, float minTemp) {
     blink = 200 / ratio;
   }
   //Serial.println(blink);
-  setColorPWM(r, g, b);
-  delay(blink);
   if (blink != 0) {
     setColorPWM(0, 0, 0);
-    delay((blink/4));
+    delay((blink));
   }
+  setColorPWM(r, g, b);
+  delay(blink);
 }
 
 // Set color with PWM and brightness scaling
