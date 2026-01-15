@@ -41,6 +41,9 @@ const int fadeTime = 1000;
 const int steps = 100;
 const int delayTime = fadeTime / steps;
 
+long int prevTime = 0;
+long int currTime = 0;
+
 std::queue<float> lastTemps;
 
 // Timer Variables
@@ -55,8 +58,9 @@ if last high temperature was recorded a certain amount of time ago, then turn of
 
 
 /* PARAMETER CONFIGURATION */
-const float maxTemp = 150.0; // Maximum temperature for scaling
-const float minTemp = 250.0; // Minimum temperature for scaling
+const float maxTemp = 250.0; // Maximum temperature for scaling
+const float minTemp = 150.0; // Minimum temperature for scaling
+const float offThreshold = minTemp - ((maxTemp - minTemp) / 2); // Temperature threshold to turn off LEDs
 
 byte mode = 0;
 
@@ -118,28 +122,57 @@ void loop() {
   lastTemps.push(temp);
 
   float averageLastTemps = 0;
+  float sumLastTemps = 0;
   for (int i = 0; i < 5; i++) {
-    averageLastTemps += lastTemps.front();
+    sumLastTemps += lastTemps.front();
   }
-  
-  
+  averageLastTemps = sumLastTemps / lastTemps.size();
+
+  //Serial.print("current temp = ");
+  //Serial.println(temp);
+  //Serial.print("average temp = ");
+  //Serial.println(averageLastTemps);
+
   switch (mode)
   {
   case 0:
     /* Test Temperature-based color setting */
     setColorPWMFromTempWithBlink(80, 70);
     break;
-  case 1:
+
+
+
+// MAIN CODE BLOCK //////////////////////////////////////////////////////////////////////////////////////////
+  case 1: 
     /* Temperature-based color setting */
-    if (temp > averageLastTemps) {
+    if (temp > averageLastTemps+3) {
       setColorPWM(255, 0, 0); // Set to red when temperature is rising
     } else {
       setColorPWMFromTemp(maxTemp, minTemp);
     }
-    
+
+    //if (temp < offThreshold) {
+    //  setColorPWM(0, 0, 0); // Turn off LEDs if temperature is below threshold
+    //}
+
+    // Data gathering
+    currTime = millis()/1000;
+    if (currTime - prevTime >= 1) {
+      Serial.print(currTime);
+      Serial.print(" | ");
+      Serial.println(temp);
+      prevTime = currTime;
+    }
+
+
+
     //Serial.print("F = ");
     //Serial.println(thermocouple.readFahrenheit());
     break;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
   case 2:
     /* Color cycling */
     for (int i = 0; i < colorCount; i++) {
@@ -172,7 +205,7 @@ void setColorPWMFromTemp(float maxTemp, float minTemp) {
   byte r, g, b;
   float potValue = analogRead(BRIGHTNESS_PIN);        // 0 - 4096
   float brightness = potValue / 4096;             // 0.0 to 1.0
-  //brightness = 1.0; // for use when potentiometer is not connected
+  //brightness = 0.8; // for use when potentiometer is not connected
 
   if (temperature <= minTemp) {
     // Green for cold temperatures
