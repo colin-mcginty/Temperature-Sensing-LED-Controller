@@ -46,14 +46,7 @@ long int currTime = 0;
 
 std::queue<float> lastTemps;
 
-// Timer Variables
-/*
-array of floats
-temperature threshold for turn off LED
-if last high temperature was recorded a certain amount of time ago, then turn off LEDs
-
-
-*/
+long int timePassed = 0;
 
 
 
@@ -61,6 +54,7 @@ if last high temperature was recorded a certain amount of time ago, then turn of
 const float maxTemp = 250.0; // Maximum temperature for scaling
 const float minTemp = 150.0; // Minimum temperature for scaling
 const float offThreshold = minTemp - ((maxTemp - minTemp) / 2); // Temperature threshold to turn off LEDs
+const long int timeThreshold = 300; // Time threshold (in seconds) to turn off LEDs
 
 byte mode = 0;
 
@@ -151,16 +145,23 @@ void loop() {
       setColorPWMFromTemp(maxTemp, minTemp);
     }
 
-    //if (temp < offThreshold) {
-    //  setColorPWM(0, 0, 0); // Turn off LEDs if temperature is below threshold
-    //}
+    if (temp < offThreshold && timePassed > timeThreshold) {
+      setColorPWM(0, 0, 0); // Turn off LEDs if temperature is below threshold
+      while (temp < offThreshold) {
+        temp = getTemp();
+        delay(1000);
+      }
+      timePassed = 0; // Reset time passed when temperature goes above threshold
+    }
 
-    // Data gathering
+    // One Second Checker
+    // do these actions after 1 second has passed
     currTime = millis()/1000;
     if (currTime - prevTime >= 1) {
-      Serial.print(currTime);
-      Serial.print(" | ");
-      Serial.println(temp);
+      //Serial.print(currTime);
+      //Serial.print(" | ");
+      //Serial.println(temp);
+      timePassed+=1;
       prevTime = currTime;
     }
 
@@ -205,7 +206,7 @@ void setColorPWMFromTemp(float maxTemp, float minTemp) {
   byte r, g, b;
   float potValue = analogRead(BRIGHTNESS_PIN);        // 0 - 4096
   float brightness = potValue / 4096;             // 0.0 to 1.0
-  //brightness = 0.8; // for use when potentiometer is not connected
+  brightness = 0.8; // for use when potentiometer is not connected  -------------------------------------------------------------------------------------<<
 
   if (temperature <= minTemp) {
     // Green for cold temperatures
@@ -268,7 +269,7 @@ void setColorPWM(byte r, byte g, byte b) {
   float potValue = analogRead(BRIGHTNESS_PIN);        // 0 - 4096
   float brightness = potValue / 4096.0;             // 0.0 to 1.0
   //Serial.println(brightness);
-  //brightness = 0.8; // for use when potentiometer is not connected
+  brightness = 0.8; // for use when potentiometer is not connected ---------------------------------------------------------------------------------------<<
 
   analogWrite(RED_PIN,   r * brightness);
   analogWrite(GREEN_PIN, g * brightness);
