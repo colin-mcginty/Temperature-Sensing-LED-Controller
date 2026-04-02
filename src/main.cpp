@@ -120,7 +120,7 @@ void loop() {
     // This case is turned on by setting switch 1 to ON and the other two to OFF
     case 1: 
       /* Temperature-based color setting */
-      if (temp > averageLastTemps+3) {
+      if (temp > averageLastTemps+3 && !timerRunningFlag) { // Heat trigger: temp rising significantly above recent average and timer not already running
         setColorPWM(255, 0, 0); // Set to red when temperature is rising
         timerRunningFlag = true; // Start the timer when a heat trigger is detected
       } if (timerRunningFlag){
@@ -138,6 +138,7 @@ void loop() {
           Serial.println(temp);
         }
         timePassed = 0; // Reset time passed when temperature goes above threshold
+        timerRunningFlag = false; // Reset timer flag when turning back on
       }
 
       // One Second Checker
@@ -216,7 +217,9 @@ void setColorPWMFromTemp(float maxTemp, float minTemp) {
 // Set color based on temperature and time with PWM and brightness scaling
 void setColorPWMFromTempAndTime(float maxTemp, float minTemp, unsigned long maxTimer) {
   static unsigned long startTime = 0;
-
+  if (timerRunningFlag && startTime == 0) {
+    startTime = millis();
+  }
   if (!timerRunningFlag) {
     timerRunningFlag = true;
     startTime = millis();
@@ -225,6 +228,7 @@ void setColorPWMFromTempAndTime(float maxTemp, float minTemp, unsigned long maxT
 
   if (elapsed >= maxTimer * 1000UL) {
     timerRunningFlag = false;
+    startTime = 0;
   }
 
   float timerRatio = timerRunningFlag ? (1.0f - min(1.0f, (float)elapsed / (maxTimer * 1000UL))) : 0.0f;
