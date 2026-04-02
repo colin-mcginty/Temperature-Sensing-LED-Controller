@@ -22,10 +22,12 @@
 #define SWITCH_ACTIVE_LOW true
 
 /* PARAMETER CONFIGURATION */
-const float maxTemp = 250.0; // Maximum temperature for scaling (F)
-const float minTemp = 150.0; // Minimum temperature for scaling (F)
-const float offThreshold = minTemp - ((maxTemp - minTemp) / 2); // Temperature threshold to turn off LEDs
+const float maxTemp = 200.0; // Maximum temperature for scaling (F)
+const float minTemp = 100.0; // Minimum temperature for scaling (F)
+const float offThreshold = 80.0; // Temperature threshold to turn off LEDs
 const long int timeThreshold = 1800; // Time threshold (in seconds) to turn off LEDs
+const long int minimumTimeAfterHeatTrigger = 600; // Minimum time (in seconds) that must pass after a heat trigger before LEDs can turn off
+
 
 /// Variable and function declarations
 // Create MAX6675 thermocouple instance
@@ -38,6 +40,7 @@ void setColorPWMFromTemp(float maxTemp, float minTemp);
 void blinkChristmas(int cycles, int onMs, int offMs);
 void setColorPWMFromTempWithBlink(float maxTemp, float minTemp);
 void setColorPWMFromTempWithFade(float maxTemp, float minTemp);
+void setColorPWMFromTempAndTime(float maxTemp, float minTemp, unsigned long maxTimer);
 // Variable declarations:
 const int fadeTime = 1000;
 const int steps = 100;
@@ -59,6 +62,7 @@ const byte colors[][3] = {
   {255, 255, 255}    // White
 };
 int colorCount = sizeof(colors) / sizeof(colors[0]);
+bool timerRunningFlag = false;
 
 // Setup function to initialize serial communication, pin modes, and delay for sensor stabilization
 void setup() {
@@ -118,7 +122,10 @@ void loop() {
       /* Temperature-based color setting */
       if (temp > averageLastTemps+3) {
         setColorPWM(255, 0, 0); // Set to red when temperature is rising
-      } else {
+        timerRunningFlag = true; // Start the timer when a heat trigger is detected
+      } if (timerRunningFlag){
+        setColorPWMFromTempAndTime(maxTemp, minTemp, minimumTimeAfterHeatTrigger);
+      } if (!timerRunningFlag) {
         setColorPWMFromTemp(maxTemp, minTemp);
       }
 
@@ -195,7 +202,7 @@ void setColorPWMFromTemp(float maxTemp, float minTemp) {
     g = 0;
     b = 0;
   } else {
-    // Gradient from Blue to Red
+    // Gradient from Green to Red
     float ratio = (temperature - minTemp) / (maxTemp - minTemp);
     r = (byte)(ratio * 255);
     g = (byte)((1 - ratio) * 255);
@@ -204,6 +211,48 @@ void setColorPWMFromTemp(float maxTemp, float minTemp) {
   analogWrite(RED_PIN,   r * brightness);
   analogWrite(GREEN_PIN, g * brightness);
   analogWrite(BLUE_PIN,  b * brightness);
+}
+
+// Set color based on temperature and time with PWM and brightness scaling
+void setColorPWMFromTempAndTime(float maxTemp, float minTemp, unsigned long maxTimer) {
+  static unsigned long startTime = 0;
+
+  if (!timerRunningFlag) {
+    timerRunningFlag = true;
+    startTime = millis();
+  }
+  unsigned long elapsed = millis() - startTime;
+
+  if (elapsed >= maxTimer * 1000UL) {
+    timerRunningFlag = false;
+  }
+
+  float timerRatio = timerRunningFlag ? (1.0f - min(1.0f, (float)elapsed / (maxTimer * 1000UL))) : 0.0f;
+
+  float temperature = getTemp();
+  float tempRatio = 0.0f;
+  if (temperature <= minTemp) {
+    tempRatio = 0.0f;
+  } else if (temperature >= maxTemp) {
+    tempRatio = 1.0f;
+  } else {
+    tempRatio = (temperature - minTemp) / (maxTemp - minTemp);
+  }
+
+  // Use the more red value:
+  // tempRatio=0=green,1=red; timerRatio=1=red at start then drops to 0 over maxTimer
+  float ratio = max(tempRatio, timerRatio);
+  byte r = (byte)(ratio * 255);
+  byte g = (byte)((1 - ratio) * 255);
+  byte b = 0;
+
+  float potValue = analogRead(BRIGHTNESS_PIN);
+  float brightness = potValue / 4096.0f;
+  brightness = 0.8f; // for use when potentiometer is not connected
+
+  analogWrite(RED_PIN, r * brightness);
+  analogWrite(GREEN_PIN, g * brightness);
+  analogWrite(BLUE_PIN, b * brightness);
 }
 
 // Set color based on temperature with PWM, brightness scaling, and blinking effect
