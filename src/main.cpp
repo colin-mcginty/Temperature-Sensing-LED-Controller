@@ -1,6 +1,9 @@
 #include <Arduino.h>
+#include <esp_system.h>
 #include <max6675.h>
 #include <queue>
+
+extern "C" void esp_brownout_init(void);
 /// Pin definitions
 // RGB LED pins
 #define RED_PIN 27
@@ -26,7 +29,7 @@ const float maxTemp = 200.0; // Maximum temperature for scaling (F)
 const float minTemp = 100.0; // Minimum temperature for scaling (F)
 const float offThreshold = 80.0; // Temperature threshold to turn off LEDs
 const long int timeThreshold = 1800; // Time threshold (in seconds) to turn off LEDs
-const long int minimumTimeAfterHeatTrigger = 600; // Minimum time (in seconds) that must pass after a heat trigger before LEDs can turn off
+const long int minimumTimeAfterHeatTrigger = 1200; // Minimum time (in seconds) that must pass after a heat trigger before LEDs can turn off
 
 
 /// Variable and function declarations
@@ -41,6 +44,7 @@ void blinkChristmas(int cycles, int onMs, int offMs);
 void setColorPWMFromTempWithBlink(float maxTemp, float minTemp);
 void setColorPWMFromTempWithFade(float maxTemp, float minTemp);
 void setColorPWMFromTempAndTime(float maxTemp, float minTemp, unsigned long maxTimer);
+void disableAllLights();
 // Variable declarations:
 const int fadeTime = 1000;
 const int steps = 100;
@@ -75,6 +79,14 @@ void setup() {
   pinMode(SWITCH_1, INPUT_PULLUP);
   pinMode(SWITCH_2, INPUT_PULLUP);
   pinMode(SWITCH_3, INPUT_PULLUP);
+
+  // Enable ESP32 brownout detection and report any brownout reset
+  esp_brownout_init();
+  if (esp_reset_reason() == ESP_RST_BROWNOUT) {
+    Serial.println("Brownout reset detected. Starting in safe state.");
+    disableAllLights();
+  }
+
   delay(500);
 }
 
@@ -176,6 +188,12 @@ void loop() {
 
 
 // HELPER FUNCTIONS //////////////////////////////////////////////////////////////////////////////////////////
+
+void disableAllLights() {
+  analogWrite(RED_PIN, 0);
+  analogWrite(GREEN_PIN, 0);
+  analogWrite(BLUE_PIN, 0);
+}
 
 // Function to read temperature from MAX6675
 float getTemp() {
